@@ -309,6 +309,11 @@ async function startCamera() {
         // Start showing ovals sequentially after camera starts
         showOvalsSequentially();
 
+        // Automatically stop the camera after 26 seconds
+        setTimeout(() => {
+            stopCamera();
+        }, 26000);
+
     } catch (err) {
         let errorMessage = 'Please allow camera access in your browser settings.';
         errorMsg.textContent = errorMessage;
