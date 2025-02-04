@@ -250,6 +250,8 @@ let stream = null;
 let ovalTimeouts = [];
 
 function showOvalsSequentially() {
+    let totalDelay = 0;
+    
     faceOvals.forEach((oval, index) => {
         oval.classList.remove('face-oval-visible');
         
@@ -267,7 +269,10 @@ function showOvalsSequentially() {
                     oval.classList.remove('face-oval-visible');
                 }, 4000);
             }
-        }, index * 4000);
+        }, totalDelay);
+        
+        // First oval shows for 5 seconds, others for 4 seconds
+        totalDelay += index === 0 ? 5000 : 4000;
         
         ovalTimeouts.push(timeout);
     });
