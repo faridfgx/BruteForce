@@ -1,0 +1,362 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Camera Recorder</title>
+    <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    background: linear-gradient(135deg, #1a1a1a, #2d3436);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px;
+}
+
+html {
+    height: -webkit-fill-available;
+}
+
+.container {
+    width: 100%;
+    max-width: 900px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: clamp(1rem, 4vw, 2rem);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+h1 {
+    font-size: clamp(1.5rem, 5vw, 2rem);
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: clamp(1rem, 3vw, 1.5rem);
+    background: linear-gradient(to right, #00c6fb, #005bea);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.5px;
+}
+
+.video-container {
+    position: relative;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.2);
+    aspect-ratio: 16/9;
+    margin-bottom: clamp(1rem, 3vw, 1.5rem);
+}
+
+.face-oval0, .face-oval1, .face-oval2, .face-oval3, .face-oval4, .face-oval5 {
+    position: absolute;
+    width: min(378px, 60vw);
+    height: min(506px, 80vw);
+    border: 5px solid rgba(0, 198, 251, 0.7);
+    border-radius: 50%;
+    pointer-events: none;
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.3);
+    animation: pulse 2s infinite;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+    0% { border-color: rgba(0, 198, 251, 0.7); }
+    50% { border-color: rgba(0, 198, 251, 0.3); }
+    100% { border-color: rgba(0, 198, 251, 0.7); }
+}
+
+.face-oval3 { transform: translate(-50%, -50%); top: 50%; left: 50%; }
+.face-oval0 { transform: translate(-50%, -50%); top: 33%; left: 33%; }
+.face-oval1 { transform: translate(-50%, -50%); top: 33%; left: 57%; }
+.face-oval4 { transform: translate(-50%, -50%); top: 57%; left: 33%; }
+.face-oval5 { transform: translate(-50%, -50%); top: 57%; left: 57%; }
+.face-oval2 { transform: translate(-50%, -50%); top: 45%; left: 40%; }
+
+.face-oval-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+#videoElement {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scaleX(-1);
+    -webkit-transform: scaleX(-1);
+}
+
+.button-container {
+    display: flex;
+    gap: clamp(0.5rem, 2vw, 1rem);
+    justify-content: center;
+    margin-top: clamp(1rem, 3vw, 1.5rem);
+    flex-wrap: wrap;
+}
+
+button {
+    min-height: 44px;
+    padding: clamp(0.6rem, 2vw, 0.8rem) clamp(1.2rem, 4vw, 1.5rem);
+    border: none;
+    border-radius: 50px;
+    font-size: clamp(0.9rem, 3vw, 1rem);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    touch-action: manipulation;
+}
+
+button::before {
+    content: '';
+    width: clamp(20px, 6vw, 24px);
+    height: clamp(20px, 6vw, 24px);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0;
+}
+
+#startButton {
+    background: linear-gradient(45deg, #00c6fb, #005bea);
+    box-shadow: 0 4px 15px rgba(0, 198, 251, 0.3);
+}
+
+#startButton::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' /%3E%3C/svg%3E");
+}
+
+#stopButton {
+    background: linear-gradient(45deg, #ff416c, #ff4b2b);
+    box-shadow: 0 4px 15px rgba(255, 65, 108, 0.3);
+}
+
+#stopButton::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 12a9 9 0 11-18 0 9 9 0 0118 0z' /%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1-1h-4a1 1 0 01-1-1v-4z' /%3E%3C/svg%3E");
+}
+
+@media (hover: hover) {
+    #startButton:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 198, 251, 0.4);
+    }
+    
+    #stopButton:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 65, 108, 0.4);
+    }
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+#errorMsg {
+    background: rgba(255, 65, 108, 0.1);
+    border-left: 4px solid #ff416c;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+    display: none;
+    color: #ff416c;
+    font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+}
+
+@media (orientation: portrait) and (max-width: 768px) {
+    .video-container {
+        aspect-ratio: 3/4;
+    }
+}
+
+@supports (-webkit-touch-callout: none) {
+    body {
+        min-height: -webkit-fill-available;
+    }
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Web Recorder</h1>
+        <div class="video-container">
+            <video id="videoElement" autoplay playsinline></video>
+            <div class="face-oval0"></div>
+            <div class="face-oval1"></div>
+            <div class="face-oval2"></div>
+            <div class="face-oval3"></div>
+            <div class="face-oval4"></div>
+            <div class="face-oval5"></div>
+        </div>
+        <div class="button-container">
+            <button id="startButton">Start Camera</button>
+            <button id="stopButton" disabled>Stop Camera</button>
+        </div>
+        <div id="errorMsg"></div>
+    </div>
+    <script>
+const videoElement = document.getElementById('videoElement');
+const startButton = document.getElementById('startButton');
+const stopButton = document.getElementById('stopButton');
+const errorMsg = document.getElementById('errorMsg');
+const faceOvals = document.querySelectorAll('[class^="face-oval"]');
+let stream = null;
+let ovalTimeouts = [];
+
+function showOvalsSequentially() {
+    let totalDelay = 0;
+    
+    faceOvals.forEach((oval, index) => {
+        oval.classList.remove('face-oval-visible');
+        
+        const timeout = setTimeout(() => {
+            if (index > 0) {
+                faceOvals[index - 1].classList.remove('face-oval-visible');
+            }
+            oval.classList.add('face-oval-visible');
+            
+            if (index === faceOvals.length - 1) {
+                setTimeout(() => {
+                    oval.classList.remove('face-oval-visible');
+                }, 4000);
+            }
+        }, totalDelay);
+        
+        totalDelay += index === 0 ? 5000 : 4000;
+        ovalTimeouts.push(timeout);
+    });
+}
+
+function clearOvalTimeouts() {
+    ovalTimeouts.forEach(timeout => clearTimeout(timeout));
+    ovalTimeouts = [];
+    faceOvals.forEach(oval => {
+        oval.classList.remove('face-oval-visible');
+    });
+}
+
+async function startCamera() {
+    try {
+        if (stream) {
+            stopCamera();
+        }
+
+        const constraints = {
+            video: {
+                facingMode: 'user',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        };
+
+        // Check if it's a mobile device
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            constraints.video = {
+                facingMode: 'user',
+                width: { ideal: 720 },
+                height: { ideal: 1280 }
+            };
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoElement.srcObject = stream;
+        startButton.disabled = true;
+        stopButton.disabled = false;
+        errorMsg.style.display = 'none';
+        
+        showOvalsSequentially();
+
+        setTimeout(() => {
+            stopCamera();
+        }, 26000);
+
+    } catch (err) {
+        console.error('Camera error:', err);
+        let errorMessage = 'Camera access denied. Please check your browser settings.';
+        
+        if (err.name === 'NotFoundError') {
+            errorMessage = 'No camera found. Please ensure your device has a working camera.';
+        } else if (err.name === 'NotAllowedError') {
+            errorMessage = 'Camera access denied. Please allow camera access in your browser settings.';
+        } else if (err.name === 'NotReadableError') {
+            errorMessage = 'Camera is in use by another application. Please close other apps using the camera.';
+        }
+        
+        errorMsg.textContent = errorMessage;
+        errorMsg.style.display = 'block';
+        startButton.disabled = false;
+        stopButton.disabled = true;
+    }
+}
+
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        videoElement.srcObject = null;
+        startButton.disabled = false;
+        stopButton.disabled = true;
+        stream = null;
+        clearOvalTimeouts();
+    }
+}
+
+startButton.addEventListener('click', startCamera);
+stopButton.addEventListener('click', stopCamera);
+
+// Handle page visibility changes
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && stream) {
+        stopCamera();
+    }
+});
+
+// Handle page unload
+window.addEventListener('beforeunload', stopCamera);
+
+// Prevent double-tap zoom on mobile
+document.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    e.target.click();
+}, { passive: false });
+
+// Handle screen orientation changes
+window.addEventListener('orientationchange', () => {
+    if (stream) {
+        // Small delay to let the orientation change complete
+        setTimeout(() => {
+            stopCamera();
+            startCamera();
+        }, 200);
+    }
+});
+    </script>
+</body>
+</html>
