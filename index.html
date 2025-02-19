@@ -123,13 +123,43 @@ button:disabled {
     text-align: center;
     z-index: 1000;
 }
-    </style>
+.face-oval0, .face-oval1, .face-oval2, .face-oval3, .face-oval4, .face-oval5 {
+    position: absolute;
+    border: 3px solid rgba(0, 198, 251, 0.7);
+    border-radius: 50%;
+    pointer-events: none;
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.3);
+    animation: pulse 2s infinite;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.5s ease-in-out;
+    /* Base size will be set dynamically via JavaScript */
+}
+
+@keyframes pulse {
+    0% { border-color: rgba(0, 198, 251, 0.7); }
+    50% { border-color: rgba(0, 198, 251, 0.3); }
+    100% { border-color: rgba(0, 198, 251, 0.7); }
+}
+
+.face-oval-visible {
+    opacity: 1;
+    visibility: visible;
+}
+     </style>
 </head>
 <body>
+    <!-- Previous HTML remains the same -->
     <div class="container">
         <h1>Mobile Camera</h1>
         <div class="video-container">
             <video id="videoElement" autoplay playsinline></video>
+            <div class="face-oval0"></div>
+            <div class="face-oval1"></div>
+            <div class="face-oval2"></div>
+            <div class="face-oval3"></div>
+            <div class="face-oval4"></div>
+            <div class="face-oval5"></div>
         </div>
         <div class="button-container">
             <button id="startButton">Start</button>
@@ -138,11 +168,78 @@ button:disabled {
         <div id="errorMsg"></div>
     </div>
     <script>
+// Previous variables remain the same
 const videoElement = document.getElementById('videoElement');
 const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
 const errorMsg = document.getElementById('errorMsg');
+const faceOvals = document.querySelectorAll('[class^="face-oval"]');
 let stream = null;
+let ovalTimeouts = [];
+
+function updateOvalSizes() {
+    const container = document.querySelector('.video-container');
+    const containerRect = container.getBoundingClientRect();
+    
+    // Calculate oval size based on container dimensions
+    // Make oval height about 60% of the smaller container dimension
+    const baseSize = Math.min(containerRect.width, containerRect.height) * 0.6;
+    const ovalWidth = baseSize * 0.75;  // Make width 75% of height for oval shape
+    const ovalHeight = baseSize;
+
+    // Define oval positions relative to container size
+    const positions = [
+        { top: '33%', left: '33%' },
+        { top: '33%', left: '57%' },
+        { top: '45%', left: '40%' },
+        { top: '50%', left: '50%' },
+        { top: '57%', left: '33%' },
+        { top: '57%', left: '57%' }
+    ];
+
+    faceOvals.forEach((oval, index) => {
+        oval.style.width = `${ovalWidth}px`;
+        oval.style.height = `${ovalHeight}px`;
+        oval.style.top = positions[index].top;
+        oval.style.left = positions[index].left;
+        oval.style.transform = 'translate(-50%, -50%)';
+    });
+}
+
+function showOvalsSequentially() {
+    clearOvalTimeouts();
+    updateOvalSizes();
+    
+    let totalDelay = 0;
+    
+    faceOvals.forEach((oval, index) => {
+        oval.classList.remove('face-oval-visible');
+        
+        const timeout = setTimeout(() => {
+            if (index > 0) {
+                faceOvals[index - 1].classList.remove('face-oval-visible');
+            }
+            oval.classList.add('face-oval-visible');
+            
+            if (index === faceOvals.length - 1) {
+                setTimeout(() => {
+                    oval.classList.remove('face-oval-visible');
+                }, 4000);
+            }
+        }, totalDelay);
+        
+        totalDelay += index === 0 ? 5000 : 4000;
+        ovalTimeouts.push(timeout);
+    });
+}
+
+function clearOvalTimeouts() {
+    ovalTimeouts.forEach(timeout => clearTimeout(timeout));
+    ovalTimeouts = [];
+    faceOvals.forEach(oval => {
+        oval.classList.remove('face-oval-visible');
+    });
+}
 
 async function startCamera() {
     try {
@@ -150,7 +247,6 @@ async function startCamera() {
             stopCamera();
         }
 
-        // Get device pixel ratio and screen dimensions
         const pixelRatio = window.devicePixelRatio || 1;
         const screenWidth = screen.width * pixelRatio;
         const screenHeight = screen.height * pixelRatio;
@@ -164,17 +260,14 @@ async function startCamera() {
             audio: false
         };
 
-        // Check if it's a mobile device and adjust constraints
         if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-            // Get the actual camera capabilities
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(device => device.kind === 'videoinput');
             
             if (videoDevices.length > 0) {
                 constraints.video.deviceId = videoDevices[0].deviceId;
                 
-                // Try to match the screen orientation
-                if (window.innerHeight > window.innerWidth) {
+                if (window.orientation === 0 || window.orientation === 180) {
                     constraints.video.height = { ideal: Math.max(screenHeight, screenWidth) };
                     constraints.video.width = { ideal: Math.min(screenHeight, screenWidth) };
                 } else {
@@ -187,17 +280,17 @@ async function startCamera() {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoElement.srcObject = stream;
         
-        // Get actual video track settings
-        const videoTrack = stream.getVideoTracks()[0];
-        const settings = videoTrack.getSettings();
-        
-        // Adjust video container aspect ratio to match camera
-        const videoContainer = document.querySelector('.video-container');
-        videoContainer.style.aspectRatio = `${settings.width}/${settings.height}`;
+        handleOrientation();
+        showOvalsSequentially();
 
         startButton.disabled = true;
         stopButton.disabled = false;
         errorMsg.style.display = 'none';
+
+        // Auto-stop after 50 seconds
+        setTimeout(() => {
+            stopCamera();
+        }, 50000);
 
     } catch (err) {
         console.error('Camera error:', err);
@@ -216,7 +309,6 @@ async function startCamera() {
         startButton.disabled = false;
         stopButton.disabled = true;
         
-        // Hide error message after 3 seconds
         setTimeout(() => {
             errorMsg.style.display = 'none';
         }, 3000);
@@ -230,37 +322,66 @@ function stopCamera() {
         startButton.disabled = false;
         stopButton.disabled = true;
         stream = null;
+        clearOvalTimeouts();
+        videoElement.classList.remove('rotate-landscape', 'rotate-landscape-back');
     }
 }
 
+function handleOrientation() {
+    if (stream) {
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        
+        if (window.orientation === 90 || window.orientation === -90) {
+            if (settings.facingMode === 'user') {
+                videoElement.classList.add('rotate-landscape');
+                videoElement.classList.remove('rotate-landscape-back');
+            } else {
+                videoElement.classList.add('rotate-landscape-back');
+                videoElement.classList.remove('rotate-landscape');
+            }
+        } else {
+            videoElement.classList.remove('rotate-landscape', 'rotate-landscape-back');
+        }
+        
+        // Update oval sizes after orientation change
+        setTimeout(updateOvalSizes, 300);
+    }
+}
+
+// Event Listeners
 startButton.addEventListener('click', startCamera);
 stopButton.addEventListener('click', stopCamera);
 
-// Handle page visibility changes
+window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+        handleOrientation();
+        if (stream) {
+            clearOvalTimeouts();
+            showOvalsSequentially();
+        }
+    }, 300);
+});
+
+window.addEventListener('resize', () => {
+    if (stream) {
+        updateOvalSizes();
+    }
+});
+
 document.addEventListener('visibilitychange', () => {
     if (document.hidden && stream) {
         stopCamera();
     }
 });
 
-// Handle orientation changes
-window.addEventListener('orientationchange', () => {
-    if (stream) {
-        setTimeout(() => {
-            stopCamera();
-            startCamera();
-        }, 200);
-    }
-});
-
-// Prevent double-tap zoom on mobile
 document.addEventListener('touchend', (e) => {
     e.preventDefault();
     e.target.click();
 }, { passive: false });
 
-// Clean up on page unload
 window.addEventListener('beforeunload', stopCamera);
     </script>
 </body>
 </html>
+
